@@ -1,27 +1,56 @@
 package org.example.model;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 public class Generator {
-    private final float lambda;
-    private float nextTime = 0;
-    private final Random rnd = new Random();
+    private final double lambda; // intensity (events per unit time)
+    private final Random rnd;
+    private double nextArrival = Double.NaN;
+    private int counter = 0;
+    private final double serviceMin;
+    private final double serviceMax;
 
-    public Generator(float lambda) {
+    public Generator(double lambda, long seed, double serviceMin, double serviceMax) {
         this.lambda = lambda;
+        this.rnd = (seed == 0 ? new Random() : new Random(seed));
+        this.serviceMin = serviceMin;
+        this.serviceMax = serviceMax;
     }
 
-    public Complaint generatePoisson(float now, Worker worker, int nextId) {
-        if (nextTime == 0) {
-            nextTime = (float)(-Math.log(1 - rnd.nextFloat()) / lambda);
+    // schedule first arrival if needed
+    private void scheduleNext(double now) {
+        if (Double.isNaN(nextArrival)) {
+            nextArrival = now + sampleExpInterval();
         }
-        if (now >= nextTime) {
-            // генерируем заявку
-            float arrival = nextTime;
-            nextTime = now + (float)(-Math.log(1 - rnd.nextFloat()) / lambda);
-            return worker.submitComplaint(nextId, arrival);
+    }
+
+    // sample exponential interarrival
+    private double sampleExpInterval() {
+        if (lambda <= 0.0) return Double.POSITIVE_INFINITY;
+        double u = rnd.nextDouble();
+        while (u <= 0.0) u = rnd.nextDouble();
+        return -Math.log(u) / lambda;
+    }
+
+    // sample uniform service time
+    private double sampleService() {
+        return serviceMin + rnd.nextDouble() * (serviceMax - serviceMin);
+    }
+
+    // return list of complaints that arrive at or before 'now'
+    public List<Complaint> generate(double now) {
+        List<Complaint> produced = new ArrayList<>();
+        scheduleNext(now);
+        while (!Double.isNaN(nextArrival) && nextArrival <= now) {
+            double arrivalTime = nextArrival;
+            double serviceTime = sampleService();
+            Complaint c = new Complaint(counter++, 1, arrivalTime, serviceTime);
+            produced.add(c);
+            nextArrival = arrivalTime + sampleExpInterval();
         }
-        return null;
+        return produced;
     }
 }
 

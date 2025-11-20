@@ -1,99 +1,77 @@
 package org.example.model;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class Simulation {
-
-    public float clock = 0;
-    private final float dt;
-
-    private final Buffer buffer;
-    private final Operator[] operators;
-    private final Dispatcher dispatcher;
     private final Generator generator;
-    private final Worker[] workers;
+    private final Buffer buffer;
+    private final List<Operator> operators;
+    private final Dispatcher dispatcher;
+    public final Metrics metrics;
+    public double clock = 0.0;
+    private double delta = 0.1;
 
-    private final Metrics metrics = new Metrics();
-
-    private int nextId = 1;
-
-    public Simulation(float lambda, int workersCount, int bufferSize, int operatorsCount, float dt) {
-
-        this.dt = dt;
-
-        workers = new Worker[workersCount];
-        for (int i = 0; i < workersCount; i++)
-            workers[i] = new Worker(i + 1, "W" + (i + 1));
-
-        generator = new Generator(lambda);
-        buffer = new Buffer(bufferSize);
-
-        operators = new Operator[operatorsCount];
-        for (int i = 0; i < operatorsCount; i++)
-            operators[i] = new Operator(i + 1);
-
-        dispatcher = new Dispatcher(buffer, operators, metrics);
+    public Simulation(double lambda, int bufferSize, int numOperators, boolean directDispatch, double serviceMin, double serviceMax, long rngSeed) {
+        this.generator = new Generator(lambda, rngSeed, serviceMin, serviceMax);
+        this.buffer = new Buffer(bufferSize);
+        this.operators = new ArrayList<>();
+        for (int i = 0; i < numOperators; i++) operators.add(new Operator(i + 1));
+        this.metrics = new Metrics();
+        this.dispatcher = new Dispatcher(buffer, operators, metrics, directDispatch);
     }
 
-    public void tick() {
-        clock += dt;
-
-        // 1. Generation
-        for (Worker w : workers) {
-            Complaint c = generator.generatePoisson(clock, w, nextId);
-            if (c != null) {
-                nextId++;
-                dispatcher.onArrival(c);
-            }
+    // single simulation tick
+    public void tick(double deltaTime) {
+        clock += deltaTime;
+        List<Complaint> arrivals = generator.generate(clock);
+        for (Complaint c : arrivals) {
+            dispatcher.onArrival(c, clock);
         }
+        dispatcher.updateOperators(clock);
+    }
 
-        // 2. Dispatch to free operators
-        dispatcher.tryDispatch(clock);
+    // take snapshot (used by step mode)
+    public void snapshotAndPrint() {
+        metrics.recordSnapshot(clock, buffer, operators);
+        String events = String.join("; ", metrics.getEvents()); // simple
+        String buf = buffer.size() + " -> " + buffer.snapshotIds();
+        String ops = operators.stream().map(op -> op.describe(clock)).collect(Collectors.joining("; "));
+        String reject = String.format("%.2f", metrics.rejectionPercent());
+        System.out.printf("%6.2f | %-60s | %-20s | %-35s | %6s%n", clock, events, buf, ops, reject);
+        metrics.getEvents().clear(); // keep per-step events concise
+    }
 
-        // 3. Finishing
-        for (Operator op : operators) {
-            Complaint done = op.finishComplaint(clock);
-            if (done != null) {
-                metrics.completed++;
-                metrics.log("DONE #" + done.id);
-            }
+    public Map<String, Object> runStepMode(int steps, double deltaTime) {
+        this.delta = deltaTime;
+        Map<String, Object> lastSummary = Map.of();
+        System.out.printf("%6s | %-60s | %-20s | %-35s | %6s%n", "t", "Events", "Buffer", "Operators", "%rej");
+        System.out.println("-".repeat(140));
+        for (int i = 0; i < steps; i++) {
+            tick(deltaTime);
+            snapshotAndPrint();
         }
+        lastSummary = metrics.getSummary(clock);
+        return lastSummary;
     }
 
-    // Пошаговый режим (календарь событий)
-    public void printSnapshot() {
-        List<String> events = metrics.flushEvents();
-
-        System.out.printf("t=%.2f | Events: ", clock);
-        if (events.isEmpty()) System.out.print("—");
-        else System.out.print(String.join("; ", events));
-
-        System.out.print(" | Buffer(" + buffer.length() + "): ");
-        for (Complaint c : buffer.view()) System.out.print("#" + c.id + " ");
-
-        System.out.print(" | Operators: ");
-        for (Operator op : operators) {
-            if (op.getCurrent() == null)
-                System.out.print("O" + op.id + "=free ");
-            else
-                System.out.print("O" + op.id + "=#" + op.getCurrent().id + " ");
+    public Map<String, Object> runAutoMode(double duration, double deltaTime) {
+        this.delta = deltaTime;
+        while (clock < duration) {
+            tick(deltaTime);
+            metrics.recordSnapshot(clock, buffer, operators);
         }
-
-        System.out.printf(" | Reject=%.2f%%\n", metrics.rejectPercent());
-    }
-
-    // Автоматический режим — без вывода
-    public void runAuto(float until) {
-        while (clock < until) tick();
-    }
-
-    // Итоговая статистика
-    public void printStats() {
-        System.out.println("----- FINAL STATS -----");
-        System.out.println("Generated: " + metrics.generated);
-        System.out.println("Buffered: " + metrics.buffered);
-        System.out.println("Completed: " + metrics.completed);
-        System.out.println("Rejected: " + metrics.rejected);
-        System.out.printf("Reject %% = %.2f\n", metrics.rejectPercent());
+        // drain system
+        while (!buffer.isEmpty() || operators.stream().anyMatch(op -> !op.isFree(clock))) {
+            tick(deltaTime);
+            metrics.recordSnapshot(clock, buffer, operators);
+        }
+        // finalize operator utilization at end time
+        for (Operator op : operators) metrics.getOperatorUtil().put(op.getId(), op.utilization(clock));
+        return metrics.getSummary(clock);
     }
 }
+
+

@@ -1,35 +1,62 @@
 package org.example.model;
 
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class Buffer {
-    public final int size;
-    private final Queue<Complaint> stack = new LinkedList<>();
+    private final int capacity;
+    private final Deque<Complaint> stack;
 
-    public Buffer(int size) {
-        this.size = size;
+    public Buffer(int capacity) {
+        this.capacity = Math.max(0, capacity);
+        this.stack = new ArrayDeque<>();
     }
 
-    public boolean enqueue(Complaint c) {
-        if (isFull()) return false;
-        stack.add(c);
-        return true;
+    // push to front (LIFO)
+    public List<Complaint> enqueue(Complaint c) {
+        List<Complaint> rejected = new ArrayList<>();
+        if (capacity == 0) {
+            rejected.add(c);
+            return rejected;
+        }
+        if (stack.size() >= capacity) {
+            // переполнение → oldest заявки отбрасываем
+            while (stack.size() >= capacity) {
+                Complaint oldest = stack.removeLast();
+                rejected.add(oldest);
+            }
+        }
+        stack.addFirst(c);
+        return rejected;
     }
 
+    // pop last inserted
     public Complaint dequeue() {
-        return stack.poll();
+        return stack.pollFirst();
+    }
+
+    public boolean isEmpty() {
+        return stack.isEmpty();
     }
 
     public boolean isFull() {
-        return stack.size() >= size;
+        return stack.size() >= capacity;
     }
 
-    public int length() {
+    public int size() {
         return stack.size();
     }
 
-    public Queue<Complaint> view() {
-        return stack;
+    public List<Integer> snapshotIds() {
+        return stack.stream().map(Complaint::getId).collect(Collectors.toList());
+    }
+
+    // remove a specific complaint (e.g., hangup)
+    public boolean remove(Complaint c) {
+        return stack.remove(c);
     }
 }
+
