@@ -1,22 +1,15 @@
 package org.example.model;
 
 public class Complaint {
-    private static int counter = 0;
-    public int id;
-    public int workerId;
-    public double arrivalTime;
-    public double processingTime;
+    public final int id;
+    public final int workerId;
+    public final float arrivalTime;
+    public final float processingTime;
 
-    public Complaint(int workerId, double arrivalTime, double processingTime) {
-        this.id = counter++;
+    public Complaint(int id, int workerId, float arrivalTime, float processingTime) {
+        this.id = id;
         this.workerId = workerId;
         this.arrivalTime = arrivalTime;
         this.processingTime = processingTime;
     }
-
-    @Override
-    public String toString() {
-        return "C" + id + "(W" + workerId + ")";
-    }
 }
-

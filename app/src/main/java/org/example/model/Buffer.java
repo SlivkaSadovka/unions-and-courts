@@ -1,21 +1,19 @@
 package org.example.model;
 
-import java.util.*;
+import java.util.LinkedList;
+import java.util.Queue;
 
 public class Buffer {
-    protected int size;
-    protected Deque<Complaint> stack;
+    public final int size;
+    private final Queue<Complaint> stack = new LinkedList<>();
 
     public Buffer(int size) {
         this.size = size;
-        this.stack = new ArrayDeque<>();
     }
 
-    public boolean enqueue(Complaint complaint) {
-        if (stack.size() >= size) {
-            stack.removeLast(); // выбрасываем старую заявку
-        }
-        stack.push(complaint);
+    public boolean enqueue(Complaint c) {
+        if (isFull()) return false;
+        stack.add(c);
         return true;
     }
 
@@ -27,16 +25,11 @@ public class Buffer {
         return stack.size() >= size;
     }
 
-    public List<Complaint> getAll() {
-        return new ArrayList<>(stack);
-    }
-
-    public int size() {
+    public int length() {
         return stack.size();
     }
 
-    @Override
-    public String toString() {
-        return stack.toString();
+    public Queue<Complaint> view() {
+        return stack;
     }
 }

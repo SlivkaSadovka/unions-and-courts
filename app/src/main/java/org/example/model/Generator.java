@@ -1,15 +1,27 @@
 package org.example.model;
 
-public class Generator {
-    private double lambda;
+import java.util.Random;
 
-    public Generator(double lambda) {
+public class Generator {
+    private final float lambda;
+    private float nextTime = 0;
+    private final Random rnd = new Random();
+
+    public Generator(float lambda) {
         this.lambda = lambda;
     }
 
-    public Complaint generatePoisson(double now, Worker worker) {
-        double u = Math.random();
-        double interArrival = -Math.log(1 - u) / lambda;
-        return worker.submitComplaint(now + interArrival);
+    public Complaint generatePoisson(float now, Worker worker, int nextId) {
+        if (nextTime == 0) {
+            nextTime = (float)(-Math.log(1 - rnd.nextFloat()) / lambda);
+        }
+        if (now >= nextTime) {
+            // генерируем заявку
+            float arrival = nextTime;
+            nextTime = now + (float)(-Math.log(1 - rnd.nextFloat()) / lambda);
+            return worker.submitComplaint(nextId, arrival);
+        }
+        return null;
     }
 }
+

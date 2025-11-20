@@ -1,31 +1,34 @@
 package org.example.model;
 
 public class Operator {
-    public int id;
-    public double busyUntil;
-    private Complaint currentComplaint;
+
+    public final int id;
+    private float busyUntil = 0;
+    private Complaint current = null;
 
     public Operator(int id) {
         this.id = id;
-        this.busyUntil = 0;
     }
 
-    public boolean isFree(double now) {
+    public boolean isFree(float now) {
         return now >= busyUntil;
     }
 
-    public void takeComplaint(Complaint complaint, double now) {
-        currentComplaint = complaint;
-        busyUntil = now + complaint.processingTime;
+    public void takeComplaint(Complaint c, float now) {
+        current = c;
+        busyUntil = now + c.processingTime;
+    }
+
+    public Complaint finishComplaint(float now) {
+        if (current != null && now >= busyUntil) {
+            Complaint done = current;
+            current = null;
+            return done;
+        }
+        return null;
     }
 
     public Complaint getCurrent() {
-        return currentComplaint;
-    }
-
-    @Override
-    public String toString() {
-        if (currentComplaint != null) return "O" + id + ":" + currentComplaint;
-        else return "O" + id + ":free";
+        return current;
     }
 }

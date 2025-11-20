@@ -1,16 +1,19 @@
 package org.example.model;
+import java.util.Random;
 
 public class Worker {
-    public int id;
-    public String name;
+    private static final Random R = new Random();
+
+    public final int id;
+    public final String name;
 
     public Worker(int id, String name) {
         this.id = id;
         this.name = name;
     }
 
-    public Complaint submitComplaint(double now) {
-        double processingTime = 1 + Math.random() * 2; // равномерное распределение
-        return new Complaint(id, now, processingTime);
+    public Complaint submitComplaint(int nextId, float now) {
+        float proc = 1.0f + R.nextFloat() * 9.0f; // 1..10
+        return new Complaint(nextId, id, now, proc);
     }
 }

@@ -1,53 +1,39 @@
 package org.example.model;
 
-import java.util.*;
-
 public class Dispatcher {
-    private Buffer buffer;
-    private List<Operator> operators;
-    private boolean directDispatch;
 
-    public Dispatcher(Buffer buffer, List<Operator> operators, boolean directDispatch) {
+    private final Buffer buffer;
+    private final Operator[] operators;
+    private final Metrics metrics;
+
+    public Dispatcher(Buffer buffer, Operator[] operators, Metrics metrics) {
         this.buffer = buffer;
         this.operators = operators;
-        this.directDispatch = directDispatch;
+        this.metrics = metrics;
     }
 
-    public void onArrival(Complaint complaint, double now) {
-        if (directDispatch) {
-            tryDispatchDirect(complaint, now);
+    public void onArrival(Complaint c) {
+        metrics.generated++;
+        metrics.log("GENERATED #" + c.id + " from W" + c.workerId);
+
+        if (!buffer.enqueue(c)) {
+            metrics.rejected++;
+            metrics.log("REJECT #" + c.id);
         } else {
-            buffer.enqueue(complaint);
-            tryDispatch(now);
+            metrics.buffered++;
+            metrics.log("BUFFERED #" + c.id);
         }
     }
 
-    private void tryDispatch(double now) {
+    public void tryDispatch(float now) {
         for (Operator op : operators) {
             if (op.isFree(now)) {
-                Complaint c = buffer.dequeue();
-                if (c != null) {
-                    op.takeComplaint(c, now);
-                }
+                Complaint next = buffer.dequeue();
+                if (next == null) return;
+
+                op.takeComplaint(next, now);
+                metrics.log("SENT TO OPERATOR " + op.id + " complaint #" + next.id);
             }
         }
-    }
-
-    private void tryDispatchDirect(Complaint complaint, double now) {
-        for (Operator op : operators) {
-            if (op.isFree(now)) {
-                op.takeComplaint(complaint, now);
-                return;
-            }
-        }
-        buffer.enqueue(complaint); // если все заняты, кладём в буфер
-    }
-
-    public Buffer getBuffer() {
-        return buffer;
-    }
-
-    public List<Operator> getOperators() {
-        return operators;
     }
 }
