@@ -21,7 +21,6 @@ public class Operator {
         this.busyUntil = now + c.getServiceTime();
     }
 
-    // if finishing now, return finished complaint; else null
     public Complaint finishIfDue(double now) {
         if (current != null && now >= busyUntil) {
             Complaint finished = current;

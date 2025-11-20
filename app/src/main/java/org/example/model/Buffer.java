@@ -15,7 +15,6 @@ public class Buffer {
         this.stack = new ArrayDeque<>();
     }
 
-    // push to front (LIFO)
     public List<Complaint> enqueue(Complaint c) {
         List<Complaint> rejected = new ArrayList<>();
         if (capacity == 0) {
@@ -23,7 +22,7 @@ public class Buffer {
             return rejected;
         }
         if (stack.size() >= capacity) {
-            // переполнение → oldest заявки отбрасываем
+
             while (stack.size() >= capacity) {
                 Complaint oldest = stack.removeLast();
                 rejected.add(oldest);
@@ -33,7 +32,6 @@ public class Buffer {
         return rejected;
     }
 
-    // pop last inserted
     public Complaint dequeue() {
         return stack.pollFirst();
     }
@@ -54,7 +52,6 @@ public class Buffer {
         return stack.stream().map(Complaint::getId).collect(Collectors.toList());
     }
 
-    // remove a specific complaint (e.g., hangup)
     public boolean remove(Complaint c) {
         return stack.remove(c);
     }

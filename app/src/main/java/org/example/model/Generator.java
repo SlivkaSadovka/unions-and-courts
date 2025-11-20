@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Random;
 
 public class Generator {
-    private final double lambda; // intensity (events per unit time)
+    private final double lambda;
     private final Random rnd;
     private double nextArrival = Double.NaN;
     private int counter = 0;
@@ -19,14 +19,12 @@ public class Generator {
         this.serviceMax = serviceMax;
     }
 
-    // schedule first arrival if needed
     private void scheduleNext(double now) {
         if (Double.isNaN(nextArrival)) {
             nextArrival = now + sampleExpInterval();
         }
     }
 
-    // sample exponential interarrival
     private double sampleExpInterval() {
         if (lambda <= 0.0) return Double.POSITIVE_INFINITY;
         double u = rnd.nextDouble();
@@ -34,12 +32,10 @@ public class Generator {
         return -Math.log(u) / lambda;
     }
 
-    // sample uniform service time
     private double sampleService() {
         return serviceMin + rnd.nextDouble() * (serviceMax - serviceMin);
     }
 
-    // return list of complaints that arrive at or before 'now'
     public List<Complaint> generate(double now) {
         List<Complaint> produced = new ArrayList<>();
         scheduleNext(now);

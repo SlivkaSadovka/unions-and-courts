@@ -27,7 +27,7 @@ public class Dispatcher {
                 return;
             }
         }
-        // try enqueue; if capacity==0, enqueue returns false
+
         List<Complaint> rejected = buffer.enqueue(c);;
         if (!rejected.isEmpty()) {
             for (Complaint r : rejected) {
@@ -39,7 +39,7 @@ public class Dispatcher {
         tryDispatch(now);
     }
 
-    // try to assign pending complaints to free operators
+
     public void tryDispatch(double now) {
         List<Operator> free = collectFree(now);
         while (!free.isEmpty() && !buffer.isEmpty()) {
@@ -55,13 +55,13 @@ public class Dispatcher {
         metrics.logStart(c, op, now);
     }
 
-    // called by simulation to check for finished processing
+
     public void updateOperators(double now) {
         for (Operator op : operators) {
             Complaint finished = op.finishIfDue(now);
             if (finished != null) {
                 metrics.logDone(finished, now);
-                // after finishing, try dispatch again (may free up operator)
+
             }
         }
         tryDispatch(now);
@@ -70,7 +70,7 @@ public class Dispatcher {
     private List<Operator> collectFree(double now) {
         List<Operator> list = new ArrayList<>();
         for (Operator op : operators) if (op.isFree(now)) list.add(op);
-        // priority by operator id (lower id -> higher priority)
+
         list.sort(Comparator.comparingInt(Operator::getId));
         return list;
     }

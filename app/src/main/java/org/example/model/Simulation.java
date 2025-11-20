@@ -23,7 +23,6 @@ public class Simulation {
         this.dispatcher = new Dispatcher(buffer, operators, metrics, directDispatch);
     }
 
-    // single simulation tick
     public void tick(double deltaTime) {
         clock += deltaTime;
         List<Complaint> arrivals = generator.generate(clock);
@@ -33,28 +32,26 @@ public class Simulation {
         dispatcher.updateOperators(clock);
     }
 
-    // take snapshot (used by step mode)
     public void snapshotAndPrint() {
         metrics.recordSnapshot(clock, buffer, operators);
-        String events = String.join("; ", metrics.getEvents()); // simple
+        String events = String.join("; ", metrics.getEvents());
         String buf = buffer.size() + " -> " + buffer.snapshotIds();
         String ops = operators.stream().map(op -> op.describe(clock)).collect(Collectors.joining("; "));
         String reject = String.format("%.2f", metrics.rejectionPercent());
         System.out.printf("%6.2f | %-60s | %-20s | %-35s | %6s%n", clock, events, buf, ops, reject);
-        metrics.getEvents().clear(); // keep per-step events concise
+        metrics.getEvents().clear();
     }
 
-    public Map<String, Object> runStepMode(int steps, double deltaTime) {
+    public void runStepMode(int steps, double deltaTime) {
         this.delta = deltaTime;
-        Map<String, Object> lastSummary = Map.of();
+        Map<String, Object> lastSummary;
         System.out.printf("%6s | %-60s | %-20s | %-35s | %6s%n", "t", "Events", "Buffer", "Operators", "%rej");
         System.out.println("-".repeat(140));
         for (int i = 0; i < steps; i++) {
             tick(deltaTime);
             snapshotAndPrint();
         }
-        lastSummary = metrics.getSummary(clock);
-        return lastSummary;
+        metrics.getSummary(clock);
     }
 
     public Map<String, Object> runAutoMode(double duration, double deltaTime) {
@@ -63,14 +60,21 @@ public class Simulation {
             tick(deltaTime);
             metrics.recordSnapshot(clock, buffer, operators);
         }
-        // drain system
+
         while (!buffer.isEmpty() || operators.stream().anyMatch(op -> !op.isFree(clock))) {
             tick(deltaTime);
             metrics.recordSnapshot(clock, buffer, operators);
         }
-        // finalize operator utilization at end time
         for (Operator op : operators) metrics.getOperatorUtil().put(op.getId(), op.utilization(clock));
         return metrics.getSummary(clock);
+    }
+
+    public double getDelta() {
+        return delta;
+    }
+
+    public void setDelta(double delta) {
+        this.delta = delta;
     }
 }
 
